@@ -1,0 +1,34 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
+export const PORT = process.env.PORT || 5000;
+export const JWT_SECRET = process.env.JWT_SECRET || 'cardia_x_secure_jwt_secret_token_2026_super_key';
+export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+
+export const USER_ROLES = {
+  PATIENT: 'patient',
+  DOCTOR: 'doctor',
+  ADMIN: 'admin',
+} as const;
+
+export const RISK_LEVELS = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+} as const;
+
+export const EVENT_TYPES = {
+  ECG_UPLOADED: 'ECG_UPLOADED',
+  REPORT_UPLOADED: 'REPORT_UPLOADED',
+  MEDICATION_STARTED: 'MEDICATION_STARTED',
+  MEDICATION_STOPPED: 'MEDICATION_STOPPED',
+  MEDICATION_MISSED: 'MEDICATION_MISSED',
+  SYMPTOM_REPORTED: 'SYMPTOM_REPORTED',
+  DOCTOR_CONSULTATION: 'DOCTOR_CONSULTATION',
+  INVESTIGATION_ORDERED: 'INVESTIGATION_ORDERED',
+  INVESTIGATION_COMPLETED: 'INVESTIGATION_COMPLETED',
+  RISK_ALERT: 'RISK_ALERT',
+  WEARABLE_ANOMALY: 'WEARABLE_ANOMALY',
+  DOCTOR_APPROVAL: 'DOCTOR_APPROVAL',
+} as const;
+
