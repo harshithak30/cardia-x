@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { PORT } from './config/constants.js';
 import { connectDB } from './config/db.js';
-import { seedDatabase } from './services/seedData.js';
+import { ensurePatientNumbers, seedDatabase } from './services/seedData.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { indexClinicalDatasets } from './rag/datasetIndexer.js';
 
@@ -61,6 +61,7 @@ app.use(errorHandler);
 const start = async () => {
   try {
     await connectDB();
+    await ensurePatientNumbers();
     await seedDatabase();
     await indexClinicalDatasets();
 

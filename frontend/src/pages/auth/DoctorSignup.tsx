@@ -64,7 +64,7 @@ export const DoctorSignup: React.FC = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-xl px-4">
         <div className="bg-white dark:bg-navy-850 py-8 px-6 sm:px-10 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-card">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Full Legal Name (with Title)</label>
               <input
@@ -85,6 +85,7 @@ export const DoctorSignup: React.FC = () => {
                   type="email"
                   name="email"
                   required
+                  autoComplete="section-doctor-registration username"
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="dr.wells@heartcenter.org"
@@ -99,6 +100,7 @@ export const DoctorSignup: React.FC = () => {
                   name="password"
                   required
                   minLength={6}
+                  autoComplete="section-doctor-registration new-password"
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="••••••••"

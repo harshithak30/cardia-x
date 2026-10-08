@@ -3,7 +3,9 @@ dotenv.config();
 
 export const PORT = process.env.PORT || 5000;
 export const JWT_SECRET = process.env.JWT_SECRET || 'cardia_x_secure_jwt_secret_token_2026_super_key';
-export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY || '';
+export const GEMINI_VISION_MODEL = process.env.GEMINI_VISION_MODEL || 'gemini-3.8-flash';
+export const GEMINI_VISION_FALLBACK_MODEL = process.env.GEMINI_VISION_FALLBACK_MODEL || 'gemini-3.1-flash-lite-preview';
 
 export const USER_ROLES = {
   PATIENT: 'patient',
@@ -31,4 +33,3 @@ export const EVENT_TYPES = {
   WEARABLE_ANOMALY: 'WEARABLE_ANOMALY',
   DOCTOR_APPROVAL: 'DOCTOR_APPROVAL',
 } as const;
-

@@ -18,6 +18,7 @@ import { AuditLog } from '../models/AuditLog.js';
 import { AIWorkflow } from '../models/AIWorkflow.js';
 import { careOrchestratorInstance } from '../agents/CareOrchestrator.js';
 import { medicationAgentInstance } from '../agents/MedicationAgent.js';
+import { PrescriptionUpload } from '../models/PrescriptionUpload.js';
 
 const getAccessiblePatientIds = async (req: AuthRequest): Promise<mongoose.Types.ObjectId[] | null> => {
   if (req.user?.role === 'admin') return null;
@@ -135,6 +136,7 @@ export const getPatientDetails360 = async (req: AuthRequest, res: Response): Pro
       worldModel,
       doctorNotes,
       aiWorkflows,
+      historicalPrescriptions,
     ] = await Promise.all([
       User.findById(pId).select('-passwordHash'),
       PatientProfile.findOne({ userId: pId }),
@@ -148,6 +150,7 @@ export const getPatientDetails360 = async (req: AuthRequest, res: Response): Pro
       PatientWorldModel.findOne({ patientId: pId }),
       DoctorNote.find({ patientId: pId }).sort({ noteDate: -1 }),
       AIWorkflow.find({ patientId: pId }).sort({ createdAt: -1 }).limit(10),
+      PrescriptionUpload.find({ patientId: pId }).sort({ createdAt: -1 }),
     ]);
 
     if (!user || !profile) {
@@ -170,6 +173,7 @@ export const getPatientDetails360 = async (req: AuthRequest, res: Response): Pro
         worldModel,
         doctorNotes,
         aiWorkflows,
+        historicalPrescriptions,
       },
     });
   } catch (error: any) {
@@ -342,4 +346,3 @@ export const prescribeMedication = async (req: AuthRequest, res: Response): Prom
     res.status(500).json({ success: false, message: error.message });
   }
 };
-

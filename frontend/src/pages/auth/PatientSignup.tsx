@@ -43,11 +43,17 @@ export const PatientSignup: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
+    const fieldName =
+      name === 'patient-registration-identity'
+        ? 'email'
+        : name === 'patient-registration-secret'
+          ? 'password'
+          : name;
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      setFormData((prev) => ({ ...prev, [name]: checked }));
+      setFormData((prev) => ({ ...prev, [fieldName]: checked }));
     } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [fieldName]: value }));
     }
   };
 
@@ -137,7 +143,7 @@ export const PatientSignup: React.FC = () => {
         <div className="bg-white dark:bg-navy-850 py-8 px-6 sm:px-10 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-card">
           {/* STEP 1: Basic Demographics & Auth */}
           {step === 1 && (
-            <form onSubmit={handleNext} className="space-y-4">
+            <form onSubmit={handleNext} autoComplete="off" className="space-y-4">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-2">
                 1. Account & Personal Demographics
               </h3>
@@ -160,8 +166,9 @@ export const PatientSignup: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
                   <input
                     type="email"
-                    name="email"
+                    name="patient-registration-identity"
                     required
+                    autoComplete="off"
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="john@example.com"
@@ -173,9 +180,10 @@ export const PatientSignup: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Password</label>
                   <input
                     type="password"
-                    name="password"
+                    name="patient-registration-secret"
                     required
                     minLength={6}
+                    autoComplete="new-password"
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="Min. 6 characters"

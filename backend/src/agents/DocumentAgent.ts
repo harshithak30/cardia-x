@@ -1,5 +1,26 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { GEMINI_API_KEY } from '../config/constants.js';
+import fs from 'node:fs/promises';
+import { createWorker } from 'tesseract.js';
+import { GEMINI_API_KEY, GEMINI_VISION_FALLBACK_MODEL, GEMINI_VISION_MODEL } from '../config/constants.js';
+
+const PRESCRIPTION_MEDICATION_NAMES = [
+  'Atorvastatin', 'Rosuvastatin', 'Simvastatin', 'Pravastatin', 'Ezetimibe', 'Evolocumab', 'Alirocumab',
+  'Metoprolol Succinate', 'Metoprolol Tartrate', 'Carvedilol', 'Bisoprolol', 'Nebivolol', 'Lisinopril',
+  'Enalapril', 'Ramipril', 'Valsartan', 'Losartan', 'Candesartan', 'Sacubitril/Valsartan', 'Empagliflozin',
+  'Dapagliflozin', 'Canagliflozin', 'Aspirin', 'Clopidogrel', 'Prasugrel', 'Ticagrelor', 'Apixaban',
+  'Rivaroxaban', 'Dabigatran', 'Furosemide', 'Bumetanide', 'Torsemide', 'Spironolactone', 'Eplerenone',
+  'Isosorbide Dinitrate', 'Hydralazine/Isosorbide Dinitrate', 'Hydralazine', 'Digoxin', 'Amiodarone',
+  'Diltiazem', 'Verapamil', 'Amlodipine',
+];
+
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+class GeminiPrescriptionModelError extends Error {
+  constructor(public readonly status?: number) {
+    super('Gemini prescription extraction failed.');
+    this.name = 'GeminiPrescriptionModelError';
+  }
+}
 
 export interface IDocumentExtractionResult {
   reportType: 'ECG' | 'Blood Test' | 'Echocardiography' | 'Lipid Profile' | 'Prescription' | 'Discharge Summary' | 'Doctor Note' | 'Other';
@@ -32,6 +53,182 @@ export class DocumentIntelligenceAgent {
     if (GEMINI_API_KEY) {
       this.genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     }
+  }
+
+  public async extractHistoricalPrescription(
+    filePath: string,
+    fileType: string,
+    originalFileName: string,
+    extractedText = ''
+  ): Promise<{
+    doctorName?: string;
+    hospitalName?: string;
+    prescriptionDate?: string;
+    medications: Array<{ name: string; dosage: string; frequency: string; duration?: string }>;
+    recognizedText: string;
+    extractionNote: string;
+  }> {
+    let modelFailureStatus: number | undefined;
+    if (this.genAI) {
+      try {
+        const content: Array<any> = [
+          {
+            text: `Read this historical doctor prescription. Transcribe all legible text and extract only medication details that are legible in the source. Never guess a drug, dose, frequency, duration, doctor, hospital, or date. Use empty strings or null when information is not legible. This is for patient review only; do not give medical advice.\nReturn only JSON: {"doctorName":"","hospitalName":"","prescriptionDate":"YYYY-MM-DD or empty","medications":[{"name":"","dosage":"","frequency":"","duration":""}],"recognizedText":"Faithful transcription of legible prescription text","extractionNote":"Briefly identify any uncertainty."}\nFilename: ${originalFileName}\nExtracted PDF text (if available):\n${extractedText || 'No embedded text found.'}`,
+          },
+        ];
+
+        const fileData = await fs.readFile(filePath);
+        content.push({ inlineData: { data: fileData.toString('base64'), mimeType: fileType } });
+        const responseText = await this.generatePrescriptionContent(content);
+        const cleaned = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(cleaned);
+        const medications = Array.isArray(parsed.medications)
+          ? parsed.medications
+              .filter((med: any) => typeof med.name === 'string' && med.name.trim())
+              .map((med: any) => ({
+                name: med.name.trim(),
+                dosage: typeof med.dosage === 'string' ? med.dosage.trim() : '',
+                frequency: typeof med.frequency === 'string' ? med.frequency.trim() : '',
+                duration: typeof med.duration === 'string' ? med.duration.trim() : '',
+              }))
+          : [];
+
+        return {
+          doctorName: typeof parsed.doctorName === 'string' ? parsed.doctorName.trim() : undefined,
+          hospitalName: typeof parsed.hospitalName === 'string' ? parsed.hospitalName.trim() : undefined,
+          prescriptionDate: typeof parsed.prescriptionDate === 'string' ? parsed.prescriptionDate : undefined,
+          medications,
+          recognizedText: typeof parsed.recognizedText === 'string' ? parsed.recognizedText.trim() : extractedText,
+          extractionNote: typeof parsed.extractionNote === 'string' && parsed.extractionNote.trim()
+            ? parsed.extractionNote.trim()
+            : 'Check all extracted details against the original prescription before confirming.',
+        };
+      } catch (error) {
+        modelFailureStatus = this.getErrorStatus(error);
+        console.warn(
+          `[DocumentAgent] Gemini prescription extraction failed${modelFailureStatus ? ` (HTTP ${modelFailureStatus})` : ''}; trying local OCR.`
+        );
+      }
+    }
+
+    let ocrText = extractedText;
+    if (!ocrText.trim() && fileType.startsWith('image/')) {
+      let worker: Awaited<ReturnType<typeof createWorker>> | undefined;
+      try {
+        worker = await createWorker('eng');
+        ocrText = (await worker.recognize(filePath)).data.text;
+      } catch (error) {
+        console.warn('[DocumentAgent] Local prescription OCR failed:', error);
+      } finally {
+        await worker?.terminate();
+      }
+    }
+
+    const medications = this.extractCatalogMedications(ocrText);
+    const dateMatch = ocrText.match(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b/);
+    const prescriptionDate = dateMatch?.[1] ? this.normalizePrescriptionDate(dateMatch[1]) : undefined;
+    const modelStatusNote = !this.genAI
+      ? ' Gemini image reading is not configured. Add GEMINI_API_KEY to backend/.env and restart the backend to enable model extraction.'
+      : modelFailureStatus === 429 || modelFailureStatus === 500 || modelFailureStatus === 502 || modelFailureStatus === 503 || modelFailureStatus === 504
+        ? ' Gemini image reading is temporarily unavailable because the service is busy. Wait briefly, then retry OCR.'
+        : modelFailureStatus === 401 || modelFailureStatus === 403
+          ? ' Gemini rejected the configured API key. Check its validity and Gemini API access.'
+          : modelFailureStatus === 404
+            ? ' A configured Gemini model is unavailable to this API key. Check GEMINI_VISION_MODEL and GEMINI_VISION_FALLBACK_MODEL against the models enabled for your key.'
+            : modelFailureStatus
+              ? ' Gemini image reading failed. Check the backend log for the API error, then retry OCR.'
+              : '';
+    const extractionNote = medications.length
+      ? `Local OCR suggested medication names from the cardiovascular reference catalog. Verify every name, dose, and frequency against the scan; OCR may miss or misread text.${modelStatusNote}`
+      : ocrText.trim()
+        ? `Text was read from the scan, but no medication names were confidently recognized. Review the transcription, add details manually, and check the original.${modelStatusNote}`
+        : fileType === 'application/pdf'
+          ? `This PDF has no selectable text. Add medication details manually, or upload each scanned page as a JPG or PNG for local OCR.${modelStatusNote}`
+          : `The image could not be read automatically. Add medication details manually and verify them against the original prescription.${modelStatusNote}`;
+
+    return { prescriptionDate, medications, recognizedText: ocrText.trim(), extractionNote };
+  }
+
+  private async generatePrescriptionContent(content: Array<any>): Promise<string> {
+    if (!this.genAI) throw new Error('Gemini API key is not configured.');
+
+    const models = [...new Set([GEMINI_VISION_MODEL, GEMINI_VISION_FALLBACK_MODEL])];
+    let lastStatus: number | undefined;
+    let temporaryFailureStatus: number | undefined;
+
+    for (const modelName of models) {
+      const model = this.genAI.getGenerativeModel({ model: modelName });
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const result = await model.generateContent(content);
+          return result.response.text();
+        } catch (error) {
+          const status = this.getErrorStatus(error);
+          const canRetry = status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+          lastStatus = status;
+          if (canRetry) temporaryFailureStatus = status;
+          if (attempt === 0 && canRetry) {
+            console.warn(`[DocumentAgent] Gemini model ${modelName} returned HTTP ${status}; retrying once.`);
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+            continue;
+          }
+          console.warn(`[DocumentAgent] Gemini model ${modelName} failed${status ? ` (HTTP ${status})` : ''}.`);
+          break;
+        }
+      }
+    }
+
+    throw new GeminiPrescriptionModelError(temporaryFailureStatus || lastStatus);
+  }
+
+  private getErrorStatus(error: unknown): number | undefined {
+    if (typeof error !== 'object' || error === null || !('status' in error)) return undefined;
+    return typeof error.status === 'number' ? error.status : undefined;
+  }
+
+  private extractCatalogMedications(text: string): Array<{ name: string; dosage: string; frequency: string; duration?: string }> {
+    const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const matches = new Map<string, { name: string; dosage: string; frequency: string; duration?: string }>();
+    const dosagePattern = /\b\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)?\s?(?:mg|mcg|µg|g|ml|mL|units?)\b/i;
+    const frequencyPattern = /\b(?:once|twice|three times|four times)\s+(?:a\s+)?daily\b(?:\s+(?:in the morning|in the evening|at night|at bedtime))?|\b(?:daily|BID|TID|QID|OD|BD|at bedtime|every\s+\d+\s+hours?)\b[^,;.]*/i;
+    const durationPattern = /\b(?:for\s+)?\d+\s*(?:days?|weeks?|months?)\b/i;
+    const combinationPatterns = [
+      /sacubitril\s*\/\s*valsartan/i,
+      /hydralazine\s*\/\s*isosorbide\s+dinitrate/i,
+    ];
+
+    for (const [lineIndex, line] of lines.entries()) {
+      const context = `${line} ${lines[lineIndex + 1] || ''}`;
+      for (const name of [...PRESCRIPTION_MEDICATION_NAMES].sort((left, right) => right.length - left.length)) {
+        if (matches.has(name)) continue;
+        if (name === 'Valsartan' && combinationPatterns[0].test(context)) continue;
+        if (name === 'Hydralazine' && combinationPatterns[1].test(context)) continue;
+        if (name === 'Isosorbide Dinitrate' && combinationPatterns[1].test(context)) continue;
+        const flexibleName = escapeRegExp(name).replace(/\s+/g, '\\s+').replace(/\//g, '\\s*\\/\\s*');
+        const namePattern = new RegExp(`\\b${flexibleName}\\b`, 'i');
+        if (!namePattern.test(context)) continue;
+
+        matches.set(name, {
+          name,
+          dosage: context.match(dosagePattern)?.[0] || '',
+          frequency: context.match(frequencyPattern)?.[0]?.trim() || '',
+          duration: context.match(durationPattern)?.[0],
+        });
+      }
+    }
+
+    return [...matches.values()];
+  }
+
+  private normalizePrescriptionDate(value: string): string | undefined {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const [first, second, rawYear] = value.split(/[/-]/).map(Number);
+    if (!first || !second || !rawYear) return undefined;
+    const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+    const month = first > 12 ? second : first;
+    const day = first > 12 ? first : second;
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString().slice(0, 10);
   }
 
   public async processDocument(
@@ -233,4 +430,3 @@ ${rawText}`;
 }
 
 export const documentAgentInstance = new DocumentIntelligenceAgent();
-

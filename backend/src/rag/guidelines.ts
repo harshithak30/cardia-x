@@ -1,12 +1,13 @@
 export interface IGuidelineDocument {
   id: string;
-  organization: 'ACC/AHA' | 'ESC' | 'HFSA' | 'ADA' | 'KDIGO';
+  organization: 'ACC/AHA' | 'ESC' | 'HFSA' | 'ADA' | 'KDIGO' | 'Source document' | 'CARDIA-X medication dataset';
   title: string;
   topic: string;
   keywords: string[];
   recommendationText: string;
-  levelOfEvidence: 'Class I (Level A)' | 'Class I (Level B)' | 'Class IIa (Level B)' | 'Class IIb (Level C)';
+  levelOfEvidence: string;
   actionableSummary: string;
+  sourceType?: 'guideline' | 'source_document' | 'reference_dataset';
   source?: string;
   sourcePage?: number;
 }

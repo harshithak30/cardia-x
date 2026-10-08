@@ -12,6 +12,7 @@ export interface User {
 
 export interface PatientProfile {
   _id: string;
+  patientNumber: string;
   userId: string | User;
   dob?: string;
   age?: number;
@@ -191,6 +192,23 @@ export interface Medication {
   duplicateWarning?: string;
 }
 
+export interface HistoricalPrescription {
+  _id: string;
+  fileUrl: string;
+  originalFileName: string;
+  fileType: string;
+  fileSize: number;
+  doctorName?: string;
+  hospitalName?: string;
+  prescriptionDate?: string;
+  medications: Array<{ name: string; dosage: string; frequency: string; duration?: string }>;
+  recognizedText?: string;
+  extractionNote?: string;
+  status: 'pending_review' | 'confirmed';
+  confirmedAt?: string;
+  createdAt: string;
+}
+
 export interface Symptom {
   _id: string;
   patientId: string;
@@ -312,6 +330,8 @@ export interface ClinicalGuideline {
   recommendationText: string;
   levelOfEvidence: string;
   actionableSummary: string;
+  sourceType?: 'guideline' | 'source_document' | 'reference_dataset';
+  source?: string;
 }
 
 export interface AIWorkflow {
@@ -339,4 +359,3 @@ export interface AIWorkflow {
   status: string;
   createdAt: string;
 }
-

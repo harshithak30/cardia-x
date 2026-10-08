@@ -13,6 +13,8 @@ coverage/
 
 # Runtime uploads and logs
 backend/uploads/
+backend/private_uploads/
+backend/data/
 *.log
 npm-debug.log*
 

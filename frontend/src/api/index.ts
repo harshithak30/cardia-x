@@ -5,6 +5,7 @@ import {
   MedicalReport,
   ECGRecord,
   Medication,
+  HistoricalPrescription,
   WearableMetric,
   Investigation,
   RiskAssessment,
@@ -54,7 +55,7 @@ export const patientApi = {
       };
     }>('/patient/dashboard'),
 
-  getProfile: () => apiRequest<{ success: boolean; profile: PatientProfile }>('/patient/profile'),
+  getProfile: () => apiRequest<{ success: boolean; profile: PatientProfile; assignedDoctor: any | null }>('/patient/profile'),
   updateProfile: (data: Partial<PatientProfile>) =>
     apiRequest<{ success: boolean; profile: PatientProfile }>('/patient/profile', {
       method: 'PUT',
@@ -73,6 +74,44 @@ export const patientApi = {
   },
 
   getMedications: () => apiRequest<{ success: boolean; medications: Medication[] }>('/patient/medications'),
+  getHistoricalPrescriptions: () =>
+    apiRequest<{ success: boolean; prescriptions: HistoricalPrescription[] }>('/patient/prescriptions'),
+  uploadHistoricalPrescription: (formData: FormData) =>
+    apiRequest<{ success: boolean; prescription: HistoricalPrescription }>('/patient/prescriptions', {
+      method: 'POST',
+      body: formData,
+    }),
+  retryHistoricalPrescriptionOcr: (prescriptionId: string) =>
+    apiRequest<{ success: boolean; prescription: HistoricalPrescription }>(
+      `/patient/prescriptions/${prescriptionId}/retry-ocr`,
+      { method: 'POST' }
+    ),
+  confirmHistoricalPrescription: (
+    prescriptionId: string,
+    medications: HistoricalPrescription['medications']
+  ) =>
+    apiRequest<{ success: boolean; prescription: HistoricalPrescription; message: string }>(
+      `/patient/prescriptions/${prescriptionId}/confirm`,
+      { method: 'POST', body: JSON.stringify({ medications }) }
+    ),
+  openHistoricalPrescription: async (prescriptionId: string) => {
+      const previewWindow = window.open('about:blank', '_blank');
+      if (!previewWindow) throw new Error('Allow pop-ups for this site to open the prescription scan.');
+    const token = localStorage.getItem('cardia_x_token');
+      try {
+        const response = await fetch(`/api/patient/prescriptions/${prescriptionId}/file`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!response.ok) throw new Error('Could not open this prescription file.');
+        const file = await response.blob();
+        const objectUrl = URL.createObjectURL(file);
+        previewWindow.location.href = objectUrl;
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      } catch (error) {
+        previewWindow.close();
+        throw error;
+      }
+  },
   addMedication: (data: any) =>
     apiRequest<{ success: boolean; medication: Medication; warning?: string }>('/patient/medications', {
       method: 'POST',
@@ -134,6 +173,7 @@ export const doctorApi = {
         reports: MedicalReport[];
         ecgs: ECGRecord[];
         medications: Medication[];
+        historicalPrescriptions: HistoricalPrescription[];
         symptoms: any[];
         vitalsHistory: WearableMetric[];
         investigations: Investigation[];
@@ -220,6 +260,7 @@ export const aiApi = {
         organization: string;
         recommendationText: string;
         levelOfEvidence: string;
+        sourceType?: string;
         relevanceScore: number;
       }>;
       confidenceScore: number;
@@ -250,4 +291,3 @@ export const aiApi = {
       body: formData,
     }),
 };
-

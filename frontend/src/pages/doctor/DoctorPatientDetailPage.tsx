@@ -128,6 +128,7 @@ export const DoctorPatientDetailPage: React.FC = () => {
   const ecgs = data.ecgs || [];
   const latestEcg = ecgs[0];
   const meds = data.medications || [];
+  const historicalPrescriptions = data.historicalPrescriptions || [];
   const vitals = data.vitalsHistory || [];
   const timeline = data.worldModel?.timeline || [];
   const notes = data.doctorNotes || [];
@@ -150,7 +151,7 @@ export const DoctorPatientDetailPage: React.FC = () => {
               </Badge>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              ID: {u._id} • {profile.age || 52} yrs • {profile.gender?.toUpperCase()} • BP: {profile.bloodGroup} • BMI: {profile.bmi || 26.5}
+              Patient ID: {profile.patientNumber} • {profile.age || 52} yrs • {profile.gender?.toUpperCase()} • BP: {profile.bloodGroup} • BMI: {profile.bmi || 26.5}
             </p>
           </div>
         </div>
@@ -322,6 +323,57 @@ export const DoctorPatientDetailPage: React.FC = () => {
               </Card>
             ))}
           </div>
+          <Card>
+            <CardHeader
+              title="Uploaded Prescription History"
+              subtitle="Patient-uploaded scans and extracted details"
+              icon={<FileText className="w-5 h-5 text-cardio-600" />}
+            />
+            <CardContent className="space-y-4">
+              {historicalPrescriptions.length === 0 && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">No prescription scans have been uploaded by this patient.</p>
+              )}
+              {historicalPrescriptions.map((prescription: any) => (
+                <section key={prescription._id} className="space-y-2 border-t border-slate-100 pt-3 first:border-0 first:pt-0 dark:border-slate-800">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-900 dark:text-white">{prescription.originalFileName}</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {prescription.doctorName || 'Doctor not identified'}
+                        {prescription.hospitalName ? ` · ${prescription.hospitalName}` : ''}
+                        {prescription.prescriptionDate ? ` · ${new Date(prescription.prescriptionDate).toLocaleDateString()}` : ''}
+                      </p>
+                    </div>
+                    <Badge variant={prescription.status === 'confirmed' ? 'low' : 'medium'} size="sm">
+                      {prescription.status === 'confirmed' ? 'Patient confirmed' : 'Needs patient review'}
+                    </Badge>
+                  </div>
+                  {prescription.medications?.length > 0 && (
+                    <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-300">
+                      {prescription.medications.map((medication: any, index: number) => {
+                        const instructions = [medication.dosage, medication.frequency, medication.duration].filter(Boolean).join(' · ');
+                        return (
+                          <li key={`${prescription._id}-${index}`}>
+                            <span className="font-semibold">{medication.name}</span>
+                            {instructions && ` — ${instructions}`}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  {prescription.extractionNote && (
+                    <p className="text-xs text-amber-700 dark:text-amber-300">{prescription.extractionNote}</p>
+                  )}
+                  {prescription.recognizedText && (
+                    <details className="rounded-lg bg-slate-50 p-2 text-xs dark:bg-navy-900">
+                      <summary className="cursor-pointer font-medium">View extracted text</summary>
+                      <pre className="mt-2 whitespace-pre-wrap break-words font-sans text-slate-600 dark:text-slate-300">{prescription.recognizedText}</pre>
+                    </details>
+                  )}
+                </section>
+              ))}
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -483,4 +535,3 @@ export const DoctorPatientDetailPage: React.FC = () => {
     </div>
   );
 };
-

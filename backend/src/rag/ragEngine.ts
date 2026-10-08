@@ -5,6 +5,8 @@ export interface IRetrievalResult {
   score: number;
 }
 
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export class RAGEngine {
   private guidelines: IGuidelineDocument[] = CARDIOVASCULAR_GUIDELINES;
 
@@ -17,18 +19,19 @@ export class RAGEngine {
       
       // Keyword matching & weighting
       queryTokens.forEach((token) => {
+        const tokenPattern = new RegExp(`\\b${escapeRegExp(token)}\\b`, 'i');
         // Keyword exact match in keyword tags has highest weight
-        if (doc.keywords.some((kw) => kw.includes(token))) {
+        if (doc.keywords.some((kw) => kw.toLowerCase().split(/[\\s/-]+/).includes(token))) {
           score += 3.5;
         }
-        if (doc.topic.toLowerCase().includes(token)) {
+        if (tokenPattern.test(doc.topic)) {
           score += 2.5;
         }
-        if (doc.title.toLowerCase().includes(token)) {
+        if (tokenPattern.test(doc.title)) {
           score += 2.0;
         }
         // Substring occurrences in recommendation text
-        const regex = new RegExp(`\\b${token}`, 'gi');
+        const regex = new RegExp(`\\b${escapeRegExp(token)}\\b`, 'gi');
         const matches = combinedDocText.match(regex);
         if (matches) {
           score += matches.length * 1.0;
@@ -40,13 +43,13 @@ export class RAGEngine {
 
       return {
         guideline: doc,
-        score: Math.max(normalizedScore, 0.35), // minimum baseline score
+        score: normalizedScore,
       };
     });
 
     // Sort descending
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, topK);
+    return scored.filter((result) => result.score > 0).slice(0, topK);
   }
 
   public addGuideline(doc: IGuidelineDocument): void {

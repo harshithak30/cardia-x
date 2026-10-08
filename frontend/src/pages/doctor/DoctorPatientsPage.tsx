@@ -114,7 +114,7 @@ export const DoctorPatientsPage: React.FC = () => {
                     <div>
                       <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-snug">{u.fullName}</h4>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {patient.age || 52} yrs • {patient.gender?.toUpperCase()} • {patient.bloodGroup}
+                        {patient.patientNumber} • {patient.age || 52} yrs • {patient.gender?.toUpperCase()} • {patient.bloodGroup}
                       </p>
                     </div>
                   </div>

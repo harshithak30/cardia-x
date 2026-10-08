@@ -1,6 +1,10 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { randomBytes } from 'node:crypto';
+
+export const createPatientNumber = (): string => `CX-${randomBytes(5).toString('hex').toUpperCase()}`;
 
 export interface IPatientProfile extends Document {
+  patientNumber: string;
   userId: mongoose.Types.ObjectId;
   dob?: Date;
   age?: number;
@@ -42,6 +46,7 @@ export interface IPatientProfile extends Document {
 
 const PatientProfileSchema = new Schema<IPatientProfile>(
   {
+    patientNumber: { type: String, unique: true, sparse: true, immutable: true, default: createPatientNumber },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
     dob: { type: Date },
     age: { type: Number },

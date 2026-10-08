@@ -90,8 +90,8 @@ export const GuidelinesManagerPage: React.FC = () => {
           <Card key={g.id} className="p-5 space-y-3 text-xs">
             <div className="flex items-start justify-between gap-2">
               <span className="font-bold text-sm text-slate-900 dark:text-white leading-snug">{g.title}</span>
-              <Badge variant="info" size="sm">
-                {g.organization}
+              <Badge variant={g.sourceType === 'reference_dataset' ? 'medium' : 'info'} size="sm">
+                {g.sourceType === 'reference_dataset' ? 'Reference data' : g.sourceType === 'source_document' ? 'Source extract' : g.organization}
               </Badge>
             </div>
 
@@ -102,9 +102,10 @@ export const GuidelinesManagerPage: React.FC = () => {
             </p>
 
             <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100 dark:border-slate-800">
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold">{g.levelOfEvidence}</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold">{g.sourceType === 'guideline' || !g.sourceType ? g.levelOfEvidence : 'Not guideline-graded'}</span>
               <span className="text-slate-400">Keywords: {g.keywords?.slice(0, 3).join(', ')}</span>
             </div>
+            {g.source && <p className="text-[10px] text-slate-400">Source: {g.source}</p>}
           </Card>
         ))}
       </div>

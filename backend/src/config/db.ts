@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import fs from 'node:fs';
+import path from 'node:path';
 
 let mongoMemServer: MongoMemoryServer | null = null;
 
@@ -12,11 +14,13 @@ export const connectDB = async (): Promise<void> => {
   } catch {
     console.warn('[Database] ⚠️  External MongoDB unavailable. Launching embedded in-memory MongoDB...');
     try {
-      mongoMemServer = await MongoMemoryServer.create();
+      const dbPath = path.join(process.cwd(), 'data', 'mongodb');
+      fs.mkdirSync(dbPath, { recursive: true });
+      mongoMemServer = await MongoMemoryServer.create({ instance: { dbPath } });
       const memUri = mongoMemServer.getUri();
       await mongoose.connect(memUri);
-      console.log(`[Database] ✅ In-memory MongoDB running at ${memUri}`);
-      console.log('[Database] ℹ️  Data is ephemeral — resets on server restart. Install MongoDB for persistence.');
+      console.log(`[Database] ✅ Persistent embedded MongoDB running at ${memUri}`);
+      console.log(`[Database] ℹ️  Local database files are stored in ${dbPath}`);
     } catch (memErr) {
       console.error('[Database] ❌ Failed to start in-memory MongoDB:', memErr);
       process.exit(1);

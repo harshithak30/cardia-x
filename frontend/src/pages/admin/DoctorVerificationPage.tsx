@@ -65,6 +65,42 @@ export const DoctorVerificationPage: React.FC = () => {
         </p>
       </div>
 
+      <Card className="overflow-hidden">
+        <div className="border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">Patient Registry</h2>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Persistent patient IDs and current doctor assignments.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 text-slate-500 dark:bg-navy-900 dark:text-slate-400">
+              <tr>
+                <th className="px-5 py-3 font-semibold">Patient ID</th>
+                <th className="px-5 py-3 font-semibold">Patient</th>
+                <th className="px-5 py-3 font-semibold">Email</th>
+                <th className="px-5 py-3 font-semibold">Assigned doctor</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {patients.map((patient) => {
+                const patientUser = typeof patient.userId === 'object' ? patient.userId : null;
+                const assignedDoctor = typeof patient.assignedDoctorId === 'object' ? patient.assignedDoctorId : null;
+                return (
+                  <tr key={patient._id}>
+                    <td className="whitespace-nowrap px-5 py-3 font-mono font-semibold text-cardio-700 dark:text-cardio-300">{patient.patientNumber}</td>
+                    <td className="whitespace-nowrap px-5 py-3 font-medium text-slate-900 dark:text-white">{patientUser?.fullName || 'Patient'}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-slate-600 dark:text-slate-300">{patientUser?.email || '—'}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-slate-600 dark:text-slate-300">{assignedDoctor?.fullName || 'Unassigned'}</td>
+                  </tr>
+                );
+              })}
+              {patients.length === 0 && !loading && (
+                <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-400">No patient profiles found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {doctors.map((doc) => {
           const u = doc.userId || {};
@@ -112,8 +148,8 @@ export const DoctorVerificationPage: React.FC = () => {
                     {patients.map((patient) => {
                       const patientUser = typeof patient.userId === 'object' ? patient.userId : null;
                       return (
-                        <option key={patient.userId as string} value={patientUser?._id || patient.userId}>
-                          {patientUser?.fullName || 'Patient'}
+                        <option key={patient._id} value={patientUser?._id || patient.userId}>
+                          {patient.patientNumber} · {patientUser?.fullName || 'Patient'}
                         </option>
                       );
                     })}

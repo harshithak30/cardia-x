@@ -34,6 +34,8 @@ cd backend
 npm run dev
 ```
 
+To enable handwriting-aware prescription reading, copy `backend/.env.example` to `backend/.env`, set `GEMINI_API_KEY` to a valid Google AI Studio API key, and restart the backend. The default vision model is `gemini-3.8-flash`; on temporary capacity errors the app retries it and falls back to `gemini-3.1-flash-lite-preview`. Set `GEMINI_VISION_MODEL` or `GEMINI_VISION_FALLBACK_MODEL` to other vision-capable models available to your key if needed. Without a working Gemini key, the app uses local OCR where possible and shows the recognized text for patient review; handwritten medication details may need manual correction. Confirm extracted details against the original scan before using them clinically. Keep the key private and do not commit `backend/.env`.
+
 ### 2. Start the Frontend Application (Port 5173)
 ```bash
 cd frontend
@@ -47,6 +49,12 @@ Visit **http://localhost:5173** in your browser.
 ## 🛠️ Technology Stack
 - **Frontend**: React 18, TypeScript, Tailwind CSS, Recharts, Lucide Icons, Vite
 - **Backend**: Node.js, Express, TypeScript, Mongoose, JWT, Multer, Google Generative AI SDK
-- **Database**: MongoDB (16 Mongoose Schemas & automated embedded in-memory fallback)
+- **Database**: MongoDB (16 Mongoose Schemas; local embedded fallback persists under `backend/data/mongodb`)
 - **Design System**: Apple Health & clinical portal UI (Light & Dark modes, glassmorphic headers, responsive layouts)
 
+## Clinical Dataset Handling
+
+- The cardiovascular medication workbook is indexed as reference data, not as a prescribing protocol or formal guideline. Dosage, contraindication, monitoring, and source evidence labels remain attributed to the workbook and require verification against current official labeling and clinician judgment.
+- PDF passages are labelled as source extracts. Extracted text is not assigned a fabricated ACC/AHA organization or evidence grade.
+- Synthetic symptom, investigation workflow, and failure-memory workbooks are not used to set clinical thresholds. They describe sample scenarios and workflow outcomes, not validated clinical guidelines.
+- The MIMIC-labelled workbook is excluded from patient-facing retrieval because its records are simulated summaries and most rows are labelled credential-restricted. It must not be treated as authorized, real patient evidence.

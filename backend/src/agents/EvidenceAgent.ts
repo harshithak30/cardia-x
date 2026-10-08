@@ -9,6 +9,8 @@ export interface IEvidenceConsultationOutput {
     organization: string;
     recommendationText: string;
     levelOfEvidence: string;
+    sourceType?: string;
+    source?: string;
     relevanceScore: number;
   }>;
   confidenceScore: number;
@@ -35,8 +37,19 @@ export class EvidenceAgent {
       organization: r.guideline.organization,
       recommendationText: r.guideline.recommendationText,
       levelOfEvidence: r.guideline.levelOfEvidence,
+      sourceType: r.guideline.sourceType || 'guideline',
+      source: r.guideline.source,
       relevanceScore: r.score,
     }));
+
+    if (retrieved.length === 0) {
+      return {
+        answer: 'I could not find a directly relevant source in the available evidence library. Please consult a qualified clinician or current official clinical guidance for this question.',
+        retrievedGuidelines: [],
+        confidenceScore: 0,
+        clinicalExplanation: 'No source matched the query.',
+      };
+    }
 
     // 2. Synthesize response using LLM or structured knowledge generator
     if (this.genAI) {
@@ -45,13 +58,13 @@ export class EvidenceAgent {
         const contextStr = guidelineList
           .map(
             (g, idx) =>
-              `[Guideline ${idx + 1} (${g.organization})]: ${g.title}\nRecommendation: ${g.recommendationText} (${g.levelOfEvidence})`
+              `[${g.sourceType === 'guideline' ? 'Guideline' : 'Reference source'} ${idx + 1} (${g.organization})]: ${g.title}\nSource type: ${g.sourceType}. Treat dataset values as reference information, not verified prescribing instructions or formal guideline recommendations.\nContent: ${g.recommendationText} (${g.levelOfEvidence})`
           )
           .join('\n\n');
 
         const prompt = `You are CARDIA-X's Evidence Retrieval & Clinical Assistant AI.
-Answer the user's cardiovascular question by strictly grounding your explanation in the retrieved clinical guidelines.
-Include direct references to the guidelines.
+Answer the user's cardiovascular question by grounding it only in the retrieved sources. Distinguish formal clinical guidelines from reference datasets and extracted documents. Never describe dataset content as an official guideline or turn listed dosage ranges into prescribing instructions. State when sources are incomplete or not guideline-graded.
+Include direct references to the sources.
 
 Patient Context: ${patientContextSummary || 'Adult cardiovascular patient in ambulatory monitoring.'}
 
@@ -67,58 +80,26 @@ Provide a clear, reassuring, medically precise response formatted in Markdown. A
           answer: res.response.text(),
           retrievedGuidelines: guidelineList,
           confidenceScore: 0.96,
-          clinicalExplanation: 'Grounded in ACC/AHA and ESC cardiovascular practice guidelines.',
+          clinicalExplanation: 'Grounded in retrieved clinical guidelines and clearly labelled reference sources.',
         };
       } catch (err) {
         console.warn('[EvidenceAgent] Gemini RAG synthesis fallback to expert engine:', err);
       }
     }
 
-    // Expert Rule-Based RAG Synthesizer
-    const topDoc = guidelineList[0];
-    let synthesizedAnswer = '';
+    const topDoc = retrieved[0].guideline;
+    const isGuideline = topDoc.sourceType === 'guideline' || !topDoc.sourceType;
+    const sourceLabel = isGuideline ? 'Guideline evidence' : 'Reference information (not a formal guideline)';
+    const synthesizedAnswer = `### ${sourceLabel}
+**Source:** ${topDoc.title} (${topDoc.organization})
 
-    if (userQuery.toLowerCase().includes('blood pressure') || userQuery.toLowerCase().includes('bp')) {
-      synthesizedAnswer = `### Cardiovascular Blood Pressure Management
-According to the **${topDoc?.title || '2024 ESC Hypertension Guidelines'}**, maintaining blood pressure within the target range is essential for preventing cardiac remodeling.
+${topDoc.recommendationText}
 
-**Guideline Recommendation:**
-> "${topDoc?.recommendationText || 'Target systolic BP 120-129 mmHg if well-tolerated.'}" (*${topDoc?.levelOfEvidence || 'Class I, Level A'}*)
+${topDoc.actionableSummary}
 
-**Clinical Takeaways:**
-1. **Target**: Systolic BP between 120-129 mmHg and Diastolic BP < 80 mmHg.
-2. **Adherence**: Take prescribed antihypertensive medications consistently at the same time each day.
-3. **Home Monitoring**: Record seated readings in the morning and evening after 5 minutes of rest.`;
-    } else if (userQuery.toLowerCase().includes('ecg') || userQuery.toLowerCase().includes('heart rate')) {
-      synthesizedAnswer = `### Electrocardiographic (ECG) Health & Intervals
-Your ECG provides important timing intervals that represent your heart's electrical conduction system.
+${isGuideline ? '' : 'This material is dataset/source-derived and has not been independently validated as a clinical guideline or prescribing instruction. Verify it against current official guidance and the patient’s clinical context.'}
 
-**Guideline Recommendation:**
-> "${topDoc?.recommendationText || 'Bazett-corrected QT interval (QTc) monitoring is key for repolarization safety.'}" (*${topDoc?.levelOfEvidence || 'Class I, Level B'}*)
-
-**Key Parameters:**
-- **Heart Rate**: Normal resting rate is 60–100 beats per minute.
-- **PR Interval**: Measures atrioventricular conduction (normal: 120–200 ms).
-- **QTc Interval**: Represents ventricular repolarization (normal: < 450 ms in men, < 460 ms in women).`;
-    } else if (userQuery.toLowerCase().includes('cholesterol') || userQuery.toLowerCase().includes('statin') || userQuery.toLowerCase().includes('ldl')) {
-      synthesizedAnswer = `### Lipid Optimization & Atherosclerotic Protection
-Lipid management focuses on reducing low-density lipoprotein cholesterol (LDL-C) to prevent plaque accumulation in coronary arteries.
-
-**Guideline Recommendation:**
-> "${topDoc?.recommendationText || 'High-intensity statin therapy aiming for >= 50% LDL-C reduction is recommended.'}" (*${topDoc?.levelOfEvidence || 'Class I, Level A'}*)
-
-**Target Levels:**
-- **High-Risk Target**: LDL-C < 55 mg/dL (< 1.4 mmol/L) with statin therapy.
-- **Lifestyle**: Mediterranean dietary pattern, soluble fiber, and regular cardiovascular exercise.`;
-    } else {
-      synthesizedAnswer = `### Cardiovascular Clinical Guidance
-Based on cardiovascular best practices from the **${topDoc?.organization || 'ACC/AHA'}**:
-
-**Guideline Reference:**
-> "${topDoc?.recommendationText || 'Continuous cardiovascular monitoring and adherence to guideline-directed therapy improves long-term cardiac outcomes.'}" (*${topDoc?.levelOfEvidence || 'Class I, Level A'}*)
-
-Please consult your assigned cardiologist regarding personalized treatment adjustments or medication inquiries.`;
-    }
+Consult your clinician for decisions about diagnosis or treatment.`;
 
     return {
       answer: synthesizedAnswer,

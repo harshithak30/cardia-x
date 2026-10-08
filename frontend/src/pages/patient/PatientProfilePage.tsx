@@ -4,11 +4,12 @@ import { useNotification } from '../../context/NotificationContext';
 import { Card, CardHeader, CardContent } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
-import { User, Heart, Shield, Save, Edit3, Activity, AlertCircle } from 'lucide-react';
+import { User, Heart, Shield, Save, Edit3, Activity, AlertCircle, Stethoscope } from 'lucide-react';
 import { PatientProfile } from '../../types';
 
 export const PatientProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
+  const [assignedDoctor, setAssignedDoctor] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { addToast } = useNotification();
@@ -19,6 +20,7 @@ export const PatientProfilePage: React.FC = () => {
       const res = await patientApi.getProfile();
       if (res.success) {
         setProfile(res.profile);
+        setAssignedDoctor(res.assignedDoctor);
       }
     } catch (err: any) {
       addToast({ type: 'error', title: 'Error', message: err.message });
@@ -77,6 +79,32 @@ export const PatientProfilePage: React.FC = () => {
           Save Changes
         </Button>
       </div>
+
+      <div className="flex flex-col gap-1 rounded-xl border border-cardio-200 bg-cardio-50 px-4 py-3 text-sm dark:border-cardio-900 dark:bg-cardio-950/30">
+        <span className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Patient ID</span>
+        <span className="font-mono font-bold text-cardio-700 dark:text-cardio-300">{profile.patientNumber}</span>
+      </div>
+
+      <Card>
+        <CardHeader
+          title="Assigned Physician"
+          subtitle="Your current doctor and their contact details"
+          icon={<Stethoscope className="w-5 h-5 text-cardio-600" />}
+        />
+        <CardContent>
+          {assignedDoctor ? (
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+              <div><span className="text-slate-500 dark:text-slate-400">Name</span><p className="font-semibold">{assignedDoctor.userId?.fullName}</p></div>
+              <div><span className="text-slate-500 dark:text-slate-400">Specialty</span><p className="font-semibold">{assignedDoctor.specialization}</p></div>
+              <div><span className="text-slate-500 dark:text-slate-400">Hospital / Clinic</span><p className="font-semibold">{assignedDoctor.hospitalName}</p></div>
+              <div><span className="text-slate-500 dark:text-slate-400">Email</span><p className="font-semibold">{assignedDoctor.userId?.email}</p></div>
+              <div><span className="text-slate-500 dark:text-slate-400">Phone</span><p className="font-semibold">{assignedDoctor.userId?.phone || 'Not provided'}</p></div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500 dark:text-slate-400">No doctor has been assigned to your account yet.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Personal Demographics */}

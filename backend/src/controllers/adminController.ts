@@ -50,7 +50,9 @@ export const getDoctorsList = async (req: AuthRequest, res: Response): Promise<v
 
 export const getPatientsList = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const patients = await PatientProfile.find().populate('userId', 'fullName email phone');
+    const patients = await PatientProfile.find()
+      .populate('userId', 'fullName email phone')
+      .populate('assignedDoctorId', 'fullName');
     res.json({ success: true, patients });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

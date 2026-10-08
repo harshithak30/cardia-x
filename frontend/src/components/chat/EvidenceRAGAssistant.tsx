@@ -21,6 +21,7 @@ interface Message {
     organization: string;
     recommendationText: string;
     levelOfEvidence: string;
+    sourceType?: string;
     relevanceScore: number;
   }>;
   confidenceScore?: number;
@@ -30,18 +31,8 @@ export const EvidenceRAGAssistant: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content:
-        'Welcome to the CARDIA-X Evidence-Grounded Cardiovascular Health Assistant. Ask me questions regarding your ECG findings, blood pressure goals, cholesterol targets, or heart medications. Every response is grounded in ACC/AHA and ESC clinical cardiology guidelines.',
-      guidelines: [
-        {
-          title: '2023 ACC/AHA Guidelines for Cardiovascular Health',
-          organization: 'ACC/AHA',
-          recommendationText: 'Patient education grounded in validated cardiology clinical trials promotes medication adherence and reduces adverse outcomes.',
-          levelOfEvidence: 'Class I (Level A)',
-          relevanceScore: 0.98,
-        },
-      ],
-      confidenceScore: 0.98,
+      content: 'Ask about cardiovascular care or medication information. Retrieved sources are labelled as guidelines, extracted documents, or reference datasets; confirm personal care decisions with your physician.',
+      guidelines: [],
     },
   ]);
   const [input, setInput] = useState('');
@@ -106,7 +97,7 @@ export const EvidenceRAGAssistant: React.FC = () => {
         </div>
 
         <Badge variant="info" dot size="md">
-          AHA/ACC Grounded
+          Evidence Sources
         </Badge>
       </div>
 
@@ -164,7 +155,7 @@ export const EvidenceRAGAssistant: React.FC = () => {
                               "{g.recommendationText}"
                             </p>
                             <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium">
-                              <span>Evidence Level: <strong className="text-emerald-500">{g.levelOfEvidence}</strong></span>
+                              <span>{g.sourceType === 'reference_dataset' ? 'Source type: ' : 'Evidence level: '}<strong className="text-emerald-500">{g.levelOfEvidence}</strong></span>
                               <span>Relevance: {(g.relevanceScore * 100).toFixed(0)}%</span>
                             </div>
                           </div>

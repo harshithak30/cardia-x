@@ -6,6 +6,7 @@ import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import { AdherenceBarChart } from '../../components/charts/AdherenceBarChart';
+import { HistoricalPrescriptionReview } from '../../components/documents/HistoricalPrescriptionReview';
 import { Medication } from '../../types';
 import {
   Pill,
@@ -122,6 +123,8 @@ export const MedicationManagerPage: React.FC = () => {
           Add Medication
         </Button>
       </div>
+
+      <HistoricalPrescriptionReview onConfirmed={fetchMeds} />
 
       {/* Compliance Overview Bar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

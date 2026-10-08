@@ -2,6 +2,7 @@ import { Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth.js';
 import { PatientProfile } from '../models/PatientProfile.js';
+import { DoctorProfile } from '../models/DoctorProfile.js';
 import { WearableMetric } from '../models/WearableMetric.js';
 import { ECGRecord } from '../models/ECGRecord.js';
 import { MedicalReport } from '../models/MedicalReport.js';
@@ -66,11 +67,15 @@ export const getDashboardSummary = async (req: AuthRequest, res: Response): Prom
     const hasClinicalData = Boolean(
       latestVitals || latestEcg || medications.length || upcomingInvestigations.length || recentReports.length || latestRisk
     );
+    const assignedDoctor = profile?.assignedDoctorId
+      ? await DoctorProfile.findOne({ userId: profile.assignedDoctorId }).populate('userId', 'fullName email phone')
+      : null;
 
     res.json({
       success: true,
       dashboard: {
         profile,
+        assignedDoctor,
         vitals: {
           latest: latestVitals,
           history: recentVitalsHistory.reverse(),
@@ -102,7 +107,10 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
       res.status(404).json({ success: false, message: 'Profile not found' });
       return;
     }
-    res.json({ success: true, profile });
+    const assignedDoctor = profile.assignedDoctorId
+      ? await DoctorProfile.findOne({ userId: profile.assignedDoctorId }).populate('userId', 'fullName email phone')
+      : null;
+    res.json({ success: true, profile, assignedDoctor });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -111,7 +119,20 @@ export const getProfile = async (req: AuthRequest, res: Response): Promise<void>
 export const updateProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const patientId = new mongoose.Types.ObjectId(req.user!.userId);
-    const updates = req.body;
+    const editableFields = new Set([
+      'dob',
+      'age',
+      'gender',
+      'bloodGroup',
+      'heightCm',
+      'weightKg',
+      'emergencyContact',
+      'medicalHistory',
+      'lifestyle',
+    ]);
+    const updates = Object.fromEntries(
+      Object.entries(req.body).filter(([field]) => editableFields.has(field))
+    );
 
     const profile = await PatientProfile.findOneAndUpdate({ userId: patientId }, { $set: updates }, { new: true });
     
